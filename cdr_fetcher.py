@@ -118,6 +118,9 @@ BANKS = {
     "AMP Bank GO": {
         "base_url": "https://pub.cdr-sme.amp.com.au/api",
     },
+    "Suncorp Bank": {
+        "base_url": "https://id-ob.suncorpbank.com.au",
+    },
 }
 
 PRODUCT_CATEGORY = "TRANS_AND_SAVINGS_ACCOUNTS"
