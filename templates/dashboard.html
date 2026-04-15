@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transaction and Savings Account Product Data Fetcher</title>
+    <style>
+        :root {
+            --bg: #0f1117;
+            --surface: #1a1d27;
+            --surface-hover: #22263a;
+            --border: #2a2e3f;
+            --text: #e4e6ed;
+            --text-muted: #8b8fa3;
+            --accent: #6c63ff;
+            --accent-glow: rgba(108, 99, 255, 0.15);
+            --green: #22c55e;
+            --green-dim: rgba(34, 197, 94, 0.12);
+            --amber: #f59e0b;
+            --amber-dim: rgba(245, 158, 11, 0.12);
+            --red: #ef4444;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 20px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+
+        .header h1 span {
+            color: var(--accent);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-muted);
+            background: var(--bg);
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--green);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .refresh-btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .refresh-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+        .refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 24px 32px;
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -1px;
+        }
+
+        .stat-value.rate { color: var(--green); }
+        .stat-sub { font-size: 13px; color: var(--text-muted); font-weight: 400; }
+
+        .table-container {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .table-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .table-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .filter-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .bank-search {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 7px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            width: 200px;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        .bank-search:focus { border-color: var(--accent); }
+        .bank-search::placeholder { color: var(--text-muted); }
+        .balance-input { width: 140px; }
+        .balance-input::-webkit-outer-spin-button,
+        .balance-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+        .change-cell {
+            font-size: 12px;
+            max-width: 220px;
+            line-height: 1.4;
+        }
+        .change-cell.up { color: var(--green); }
+        .change-cell.down { color: var(--red); }
+
+        .filter-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .filter-btn {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .filter-btn.active {
+            background: var(--accent-glow);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .filter-btn:hover { border-color: var(--accent); }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead th {
+            text-align: left;
+            padding: 12px 16px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-muted);
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        thead th:hover { color: var(--text); }
+
+        thead th .sort-arrow {
+            margin-left: 4px;
+            opacity: 0.3;
+        }
+
+        thead th.sorted .sort-arrow { opacity: 1; color: var(--accent); }
+
+        tbody tr {
+            border-bottom: 1px solid var(--border);
+            transition: background 0.1s;
+        }
+
+        tbody tr:hover { background: var(--surface-hover); }
+        tbody tr:last-child { border-bottom: none; }
+
+        tbody tr.tier-continuation td:first-child,
+        tbody tr.tier-continuation td:nth-child(2) {
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        tbody tr.product-group-start { border-top: 2px solid var(--border); }
+
+        td {
+            padding: 14px 16px;
+            font-size: 14px;
+            vertical-align: top;
+        }
+
+        .bank-cell {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+        }
+
+        .bank-logo {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            background: white;
+            object-fit: contain;
+            padding: 2px;
+        }
+
+        .product-name {
+            font-weight: 500;
+        }
+
+        .product-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 2px;
+            max-width: 280px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .rate-cell {
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .rate-cell.highlight {
+            color: var(--green);
+            background: var(--green-dim);
+            border-radius: 6px;
+            padding: 6px 10px;
+            display: inline-block;
+        }
+
+        .rate-cell.base { color: var(--text); }
+        .rate-cell.bonus { color: var(--amber); }
+
+        .balance-cell {
+            font-variant-numeric: tabular-nums;
+            color: var(--text-muted);
+        }
+
+        .conditions-cell {
+            font-size: 12px;
+            color: var(--text-muted);
+            max-width: 220px;
+            line-height: 1.5;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .badge-warn {
+            background: var(--amber-dim);
+            color: var(--amber);
+        }
+
+        .badge-ok {
+            background: var(--green-dim);
+            color: var(--green);
+        }
+
+        .term-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            background: var(--accent-glow);
+            color: var(--accent);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: var(--text-muted);
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 28px;
+            height: 28px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 12px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .next-fetch {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--surface);
+            border: 1px solid var(--green);
+            color: var(--green);
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s;
+            z-index: 100;
+        }
+
+        .toast.show { opacity: 1; transform: translateY(0); }
+
+        @media (max-width: 1200px) {
+            .stats-row { grid-template-columns: repeat(2, 1fr); }
+            .container { padding: 16px; }
+        }
+
+        @media (max-width: 768px) {
+            .stats-row { grid-template-columns: 1fr; }
+            .header { flex-direction: column; gap: 12px; }
+            .table-container { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><span>Transaction & Savings</span> Account Product Data Fetcher</h1>
+        <div class="header-right">
+            <div class="status-badge">
+                <div class="status-dot"></div>
+                <span>Live</span>
+                <span class="next-fetch" id="nextFetch"></span>
+            </div>
+            <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()">Refresh Now</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="stats-row" id="statsRow">
+            <div class="stat-card">
+                <div class="stat-label">Total Products</div>
+                <div class="stat-value" id="statTotal">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Banks Tracked</div>
+                <div class="stat-value" id="statBanks">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Highest Rate</div>
+                <div class="stat-value rate" id="statHighest">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Last Updated</div>
+                <div class="stat-value" id="statUpdated" style="font-size:16px;">-</div>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <div class="table-header">
+                <div class="table-title">Transaction & Savings Accounts</div>
+                <div class="filter-row">
+                    <input type="text" id="bankSearch" class="bank-search" placeholder="Search banks..." oninput="renderTable()">
+                    <input type="number" id="balanceFilter" class="bank-search balance-input" placeholder="Balance $..." oninput="renderTable()" min="0" step="1000">
+                    <div class="filter-group">
+                        <button class="filter-btn active" data-filter="all" onclick="setFilter('all', this)">All</button>
+                        <button class="filter-btn" data-filter="savings" onclick="setFilter('savings', this)">Savings</button>
+                        <button class="filter-btn" data-filter="transaction" onclick="setFilter('transaction', this)">Transaction</button>
+                        <button class="filter-btn" data-filter="changed" onclick="setFilter('changed', this)">Changed</button>
+                    </div>
+                </div>
+            </div>
+            <div id="tableBody">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div>Loading product data...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        let products = [];
+        let currentFilter = 'all';
+        let sortCol = 'max_interest_rate';
+        let sortAsc = false;
+
+        async function loadProducts() {
+            try {
+                const resp = await fetch('/api/products');
+                products = await resp.json();
+                renderTable();
+                updateStats();
+            } catch (e) {
+                document.getElementById('tableBody').innerHTML =
+                    '<div class="loading">Failed to load data. Retrying...</div>';
+                setTimeout(loadProducts, 5000);
+            }
+        }
+
+        async function loadStatus() {
+            try {
+                const resp = await fetch('/api/status');
+                const data = await resp.json();
+                if (data.next_fetch) {
+                    const next = new Date(data.next_fetch);
+                    document.getElementById('nextFetch').textContent =
+                        '| Next: ' + next.toLocaleTimeString();
+                }
+            } catch (e) {}
+        }
+
+        function updateStats() {
+            const uniqueProducts = new Set(products.map(p => p.product_id));
+            document.getElementById('statTotal').innerHTML =
+                uniqueProducts.size + `<span class="stat-sub"> products / ${products.length} tiers</span>`;
+
+            const banks = new Set(products.map(p => p.bank_name));
+            document.getElementById('statBanks').textContent = banks.size;
+
+            const highest = Math.max(...products.map(p => p.max_interest_rate || 0));
+            document.getElementById('statHighest').textContent = (highest * 100).toFixed(2) + '%';
+
+            if (products.length > 0 && products[0].fetched_at) {
+                const d = new Date(products[0].fetched_at);
+                document.getElementById('statUpdated').textContent = d.toLocaleString();
+            }
+        }
+
+        function setFilter(filter, btn) {
+            currentFilter = filter;
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderTable();
+        }
+
+        function setSort(col) {
+            if (sortCol === col) {
+                sortAsc = !sortAsc;
+            } else {
+                sortCol = col;
+                sortAsc = col === 'bank_name' || col === 'product_name';
+            }
+            renderTable();
+        }
+
+        function fmtRate(rate) {
+            if (rate == null || rate === 0) return '0.00%';
+            return (rate * 100).toFixed(2) + '%';
+        }
+
+        function fmtBalance(val) {
+            if (val == null) return 'No limit';
+            return '$' + Number(val).toLocaleString('en-AU', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        }
+
+        function renderTable() {
+            let filtered = products;
+            const bankQuery = (document.getElementById('bankSearch').value || '').toLowerCase().trim();
+            if (bankQuery) {
+                filtered = filtered.filter(p => p.bank_name.toLowerCase().includes(bankQuery));
+            }
+            const balRaw = document.getElementById('balanceFilter').value;
+            if (balRaw !== '' && !isNaN(balRaw)) {
+                const bal = Number(balRaw);
+                filtered = filtered.filter(p => {
+                    const minOk = (p.min_balance == null) || bal >= p.min_balance;
+                    const maxOk = (p.max_balance == null) || bal <= p.max_balance;
+                    return minOk && maxOk;
+                });
+            }
+            if (currentFilter === 'changed') {
+                filtered = filtered.filter(p => p.change_log && p.change_log.length > 0);
+            } else if (currentFilter === 'savings') {
+                filtered = filtered.filter(p =>
+                    p.product_name.toLowerCase().includes('saver') ||
+                    p.product_name.toLowerCase().includes('saving') ||
+                    p.description.toLowerCase().includes('savings')
+                );
+            } else if (currentFilter === 'transaction') {
+                filtered = filtered.filter(p =>
+                    p.product_name.toLowerCase().includes('transaction') ||
+                    p.product_name.toLowerCase().includes('everyday') ||
+                    (p.description.toLowerCase().includes('transaction') && !p.product_name.toLowerCase().includes('saver'))
+                );
+            }
+
+            filtered.sort((a, b) => {
+                let va = a[sortCol], vb = b[sortCol];
+                if (typeof va === 'string') va = va.toLowerCase();
+                if (typeof vb === 'string') vb = vb.toLowerCase();
+                if (va == null) va = sortAsc ? Infinity : -Infinity;
+                if (vb == null) vb = sortAsc ? Infinity : -Infinity;
+                return sortAsc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+            });
+
+            const cols = [
+                { key: 'bank_name', label: 'Bank' },
+                { key: 'product_name', label: 'Product' },
+                { key: 'min_balance', label: 'Min Balance' },
+                { key: 'max_balance', label: 'Max Balance' },
+                { key: 'max_interest_rate', label: 'Max Rate' },
+                { key: 'max_interest_rate_term', label: 'Term (mths)' },
+                { key: 'base_rate', label: 'Base Rate' },
+                { key: 'bonus_rate', label: 'Bonus Rate' },
+                { key: 'bonus_deposit_condition', label: 'Deposit Req' },
+                { key: 'bonus_withdrawal_condition', label: 'No Withdrawals' },
+                { key: 'bonus_transaction_condition', label: 'Txn Req' },
+                { key: 'bonus_other_conditions', label: 'Other Conditions' },
+                { key: 'change_log', label: 'Change Log' },
+            ];
+
+            let html = '<table><thead><tr>';
+            for (const col of cols) {
+                const sorted = sortCol === col.key;
+                const arrow = sorted ? (sortAsc ? '\u25B2' : '\u25BC') : '\u25BC';
+                html += `<th class="${sorted ? 'sorted' : ''}" onclick="setSort('${col.key}')">
+                    ${col.label}<span class="sort-arrow">${arrow}</span>
+                </th>`;
+            }
+            html += '</tr></thead><tbody>';
+
+            if (filtered.length === 0) {
+                html += '<tr><td colspan="13" style="text-align:center;padding:40px;color:var(--text-muted)">No products found</td></tr>';
+            }
+
+            let lastProductId = null;
+            for (const p of filtered) {
+                const isNewProduct = p.product_id !== lastProductId;
+                const rowClass = isNewProduct ? 'product-group-start' : 'tier-continuation';
+                lastProductId = p.product_id;
+
+                const bankCell = isNewProduct
+                    ? `<div class="bank-cell">${p.bank_name}</div>`
+                    : '';
+                const productCell = isNewProduct
+                    ? `<div class="product-name">${p.product_name}</div>
+                       <div class="product-desc" title="${p.description || ''}">${p.description || ''}</div>`
+                    : `<div style="color:var(--text-muted);font-size:13px">${p.product_name}</div>`;
+
+                const wdBadge = p.bonus_withdrawal_condition === 'YES'
+                    ? '<span class="badge badge-warn">YES</span>'
+                    : '<span class="badge badge-ok">NO</span>';
+
+                let changeCell = '-';
+                if (p.change_log) {
+                    const direction = p.change_log.includes('+') ? 'up' : (p.change_log.includes('-') ? 'down' : '');
+                    const when = p.change_detected_at ? new Date(p.change_detected_at).toLocaleDateString() : '';
+                    changeCell = `<div class="change-cell ${direction}" title="${when}">${p.change_log}</div>`;
+                }
+
+                html += `<tr class="${rowClass}">
+                    <td>${bankCell}</td>
+                    <td>${productCell}</td>
+                    <td class="balance-cell">${fmtBalance(p.min_balance)}</td>
+                    <td class="balance-cell">${fmtBalance(p.max_balance)}</td>
+                    <td><span class="rate-cell highlight">${fmtRate(p.max_interest_rate)}</span></td>
+                    <td><span class="term-badge">${p.max_interest_rate_term || '-'}</span></td>
+                    <td class="rate-cell base">${fmtRate(p.base_rate)}</td>
+                    <td class="rate-cell bonus">${fmtRate(p.bonus_rate)}</td>
+                    <td class="conditions-cell">${p.bonus_deposit_condition || '-'}</td>
+                    <td>${wdBadge}</td>
+                    <td class="conditions-cell">${p.bonus_transaction_condition || '-'}</td>
+                    <td class="conditions-cell">${p.bonus_other_conditions || '-'}</td>
+                    <td>${changeCell}</td>
+                </tr>`;
+            }
+
+            html += '</tbody></table>';
+            document.getElementById('tableBody').innerHTML = html;
+        }
+
+        async function manualRefresh() {
+            const btn = document.getElementById('refreshBtn');
+            btn.disabled = true;
+            btn.textContent = 'Refreshing...';
+            try {
+                await fetch('/api/refresh', { method: 'POST' });
+                await loadProducts();
+                showToast('Data refreshed successfully');
+            } catch (e) {
+                showToast('Refresh failed - retrying on next schedule');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Refresh Now';
+                loadStatus();
+            }
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+
+        // Initial load
+        loadProducts();
+        loadStatus();
+
+        // Auto-refresh table every 5 minutes from local cache
+        setInterval(loadProducts, 5 * 60 * 1000);
+        setInterval(loadStatus, 60 * 1000);
+    </script>
+</body>
+</html>
